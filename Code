@@ -1,0 +1,756 @@
+## Objectives: create 3 tables
+## 1. Index = SFID, with ENGAGED/RESELLER information
+## 2. Index = Territory, later by District (BRA< MEX,...) and Segment (ENT, MMN, ...)
+## 3. Write the Gap analysis table with salesforce information
+##
+## required functions
+## calc.inter.vector <- calculate interpolation of discrete values of a vector
+## append.slope.relgrowth.generic <- attach slope, relgrowth, intercept information to a dataframe formatted
+## as described below
+##
+## Variable description
+## 1. d.master - 2016/2017 sales revenue results thar are indexed by SFID and Linked acc Id
+## 2. d.master.sfid - 2016/2017 sales revenue results that are indexed by SFID and payer domain. 
+##    information about engagement also included
+## 3. d.reseller.sales.br - 2016/2017 sales revenue from resellers whose accounts are in the resellers.domain
+##    list
+## 4. d.reseller.sales.br.mmt - 2016/2017 sales revenue from accounts that are in SFID in MMT, and belong
+##    to the resellers.domain list. Resellers may have other revenues from non-existen SFID accounts.
+##
+## I. INTRODUCTION
+##################
+#setwd("~/R/R files/2017/may june")
+
+rm(list = ls(pattern = "^d.")) 
+d <- jan16.ago17
+sf <- sf170921_last12m
+sf.close <- sf170921_close
+## Column names are correct ? If not:
+
+d1 <- c("AR.Year", "AR.Period", "Market.Region", "Market.Segment", "Market.Sub.Region" ,
+        "Territory",   "Company.SFDC.Id"     ,       "Sfdc.Account.Name"  ,       
+        "Payer.Account.Id"  , "Payer.Email.Domain", "Linked.Account.Id" , "Linked.Email.Domain"  ,     
+        "Global.Ult.Company.Name" ,   "Charge.Item.Classification", "Total.Sales.Revenue" )
+
+d2 <- c("Opportunity.Owner", "Opportunity.Record.Type", "Close.Month",                  
+       "Account.ID", "Opportunity.Name", "Account.Name",                 
+       "Industry", "Territory", "Total.Opportunity.Currency",   
+       "Total.Opportunity", "Rest.of.Year.Revenue.Currency", "Rest.of.Year.Revenue",         
+       "Stage", "Created.Date","Close.Date","Age") 
+
+names(d) <- d1
+names(d)
+
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+options(scipen = 999)
+
+## Global variables
+dates <- c(
+  "jan-13" ,"fev-13" ,"mar-13" ,"abr-13" ,"mai-13" ,"jun-13" ,"jul-13" ,"ago-13" ,"set-13" ,"out-13" ,"nov-13" ,"dez-13" ,
+  "jan-14" ,"fev-14" ,"mar-14" ,"abr-14" ,"mai-14" ,"jun-14" ,"jul-14" ,"ago-14" ,"set-14"," out-14" ,"nov-14" ,"dez-14" ,
+  "jan-15" ,"fev-15" ,"mar-15" ,"abr-15" ,"mai-15" ,"jun-15" ,"jul-15" ,"ago-15" ,"set-15" ,"out-15" ,"nov-15" ,"dez-15" ,
+  "jan-16" ,"fev-16" ,"mar-16" ,"abr-16" ,"mai-16" ,"jun-16" ,"jul-16" ,"ago-16" ,"set-16" ,"out-16" ,"nov-16" ,"dez-16", 
+  "jan-17" ,"fev-17" ,"mar-17" ,"abr-17" ,"mai-17" ,"jun-17" ,"jul-17" ,"ago-17" ,"set-17" ,"out-17" ,"nov-17" ,"dez-17")
+
+dates2 <- c(
+  "jan.13" ,"fev.13" ,"mar.13" ,"abr.13" ,"mai.13" ,"jun.13" ,"jul.13" ,"ago.13" ,"set.13" ,"out.13" ,"nov.13" ,"dez.13" ,
+  "jan.14" ,"fev.14" ,"mar.14" ,"abr.14" ,"mai.14" ,"jun.14" ,"jul.14" ,"ago.14" ,"set.14"," out.14" ,"nov.14" ,"dez.14" ,
+  "jan.15" ,"fev.15" ,"mar.15" ,"abr.15" ,"mai.15" ,"jun.15" ,"jul.15" ,"ago.15" ,"set.15" ,"out.15" ,"nov.15" ,"dez.15" ,
+  "jan.16" ,"fev.16" ,"mar.16" ,"abr.16" ,"mai.16" ,"jun.16" ,"jul.16" ,"ago.16" ,"set.16" ,"out.16" ,"nov.16" ,"dez.16", 
+  "jan.17" ,"fev.17" ,"mar.17" ,"abr.17" ,"mai.17" ,"jun.17" ,"jul.17" ,"ago.17" ,"set.17" ,"out.17" ,"nov.17" ,"dez.17")
+
+dates3 <- c(
+  "est.jan.17" ,"est.fev.17" ,"est.mar.17" ,"est.abr.17" ,"est.mai.17" ,"est.jun.17" ,
+  "est.jul.17" ,"est.ago.17" ,"est.set.17" ,"est.out.17" ,"est.nov.17" ,"est.dez.17")
+
+resellers.domain <- c("adtsys.com.br", "avanxo.com", "brlink.com.br", "brq.com", "cloud-ware.com.mx", 
+                      "compusoluciones.com" ,"concretesolutions.com.br", "credibilit.com" ,
+                      "criptonube.com", "seidor.com","dedalusprime.com.br", "ecs.com.br", "escala24x7.com",
+                      "globant.com","ifactory.com.br", "inmotion-cloud.com", "inbest.me", "ipsense.com.br",
+                      "iteraprocess.com", "kdw.com.br","lumis.com.br", "mpl.com.br", "bestel.com.mx",
+                      "solucionesorion.com", "bmsix.com", "pyvotal.com", "resource.com.br", 
+                      "rivendel.com.br", "skyinone.com.br", "softtek.com", "dedalus.com.br", "uol.com.br",
+                      "uoldiveo.com", "artsoftsistemas.com.br", "ciandt.com", "m4u.com.br", "seidor.com.br",
+                      "uolinc.com", "ipnetsolucoes.com.br", "tivit.com.br", "mandic.com.br", "mandic.net.br",
+                      "level3.com", "br.clara.net", "skyone.solutions")
+
+## Functions
+------------
+
+#20.---------
+append.slope.relgrowth.generic <- function (df, col.start, col.finish) {
+  #acrescenta colunas de informações de Slope, relative growth
+  #como 2 colunas adicionais em um dataframe genérico
+  #df tem que ser um df transposto, col.start e col.finish numerico
+  nrows <- dim(df)[1]
+  ncols <- dim(df)[2]
+  slope<-vector(mode = "numeric",nrows)
+  intercept<-vector(mode = "numeric",nrows)
+  rel.growth <- vector(mode = "numeric", nrows)
+  x<-c(1:(col.finish-col.start+1))
+  
+  
+  for (i in 1:nrows) {
+    slope[i] <- lm(as.numeric(df[i, col.start:col.finish])~x)$coefficients[2]
+    intercept[i] <- lm(as.numeric(df[i, col.start:col.finish])~x)$coefficients[1]
+    rel.growth[i] <- slope[i]/mean(as.numeric(df[i, col.start:col.finish]), na.rm = TRUE)
+  }
+  out <-data.frame()
+  out <-bind_cols(df, data.frame(slope), data.frame(intercept), data.frame(rel.growth))
+  names(out)[ncols+1] <- "Slope"
+  names(out)[ncols+2] <- "Intercept"
+  # ordenar
+  out<-out[order(-out$Slope),]
+  out
+}
+
+## 35 - calculate interpolation cells from a vector of any size
+
+calc.inter.vector <- function(vector, n.cell) {
+  lgth <- length(vector)
+  out <- vector
+  x <- c(1:lgth)
+  analysis <- lm(as.numeric(vector[1:lgth])~x)$coefficients
+  for (i in 1:n.cell) {
+    out[lgth+i] <- analysis[1] + (lgth+i)*analysis[2]
+  }
+  out
+}
+
+
+##------ - Horizontal revenue graph
+## months should be in the format Jan.16 for example
+
+
+hrzntl.rvn.grph <- function(df, col.start, col.finish, label) {
+
+  colnames(df)[label] <- "lbl.nm"
+  grph.rdy <- gather(df, "Month", "Total", col.start:col.finish)
+  grph.rdy$Month <- ordered(grph.rdy$Month, levels = dates2)
+
+  ggplot(data=grph.rdy, aes(x=Month, y=Total, group=lbl.nm, color = lbl.nm)) +
+    geom_line(size = 1.5) +
+    geom_point()
+  
+}
+
+
+  
+##------ - salva grafico
+## arquivo tipo *.png
+
+sv.grph <- function(nm) {
+  ggsave(nm, width = 15, height = 7.5)
+  
+}
+
+##------- - seleciona opps de palavra chave campo opp name,  no Brasil
+clc.brzl.key <- function(sf, key = "#RI") {
+  d1 <- grepl(key, sf$Opportunity.Name, ignore.case = TRUE, fixed = TRUE)
+  d2 <- sf[d1,]
+  d3 <- d2[(grepl("BRA",d2$Territory, ignore.case = TRUE, fixed = TRUE)),]
+}
+#################
+
+
+
+
+## Information from Salesforce (query R STUDIO - opps in LATAM)
+## correcting date format
+names(sf) <- d2
+names(sf.close) <- d2
+
+
+sf$Close.Month <- as.Date(sf$Close.Month, "%m/%d/%Y")
+sf$Created.Date <- as.Date(sf$Created.Date, "%m/%d/%Y")
+sf$Close.Date <- as.Date(sf$Close.Date, "%m/%d/%Y")
+sf.close$Close.Month <- as.Date(sf.close$Close.Month, "%m/%d/%Y")
+sf.close$Created.Date <- as.Date(sf.close$Created.Date, "%m/%d/%Y")
+sf.close$Close.Date <- as.Date(sf.close$Close.Date, "%m/%d/%Y")
+
+d <- d %>% filter(Total.Sales.Revenue != 0)
+
+d$Linked.Account.Id <- factor(d$Linked.Account.Id)
+d$Payer.Account.Id <- factor(d$Payer.Account.Id)
+d$AR.Period <- ordered (d$AR.Period, levels = dates)
+## como mudar os niveis ? d$AR.Period <- ordered(d$AR.Period, labels = dates2)
+glimpse(d)
+
+
+id.in.sf <- (as.character(sf$Account.ID))
+SFDC.name.in.sf <- sf$Account.Name
+
+## II. CHECK DATA CONSISTENCY
+
+## do we have SFID accounts with more than one name ?
+
+## d %>% group_by(Sfdc.Account.Name) %>% summarise(Times = n(Company.SFDC.Id)) %>%
+##  filter(Times > 1)
+
+##
+##
+##
+##
+## *_*_*_*_*_*_*_*_*_*_*
+## III. d.master -> BUILD LINKED ACCOUNT ID TABLE: information about accounts, just for consultation of linked accounts
+
+d.master <- d %>%
+  group_by(Company.SFDC.Id, Linked.Account.Id, AR.Period, Sfdc.Account.Name, Territory) %>%
+  summarise(Total.Sales.Revenue = sum(Total.Sales.Revenue)) %>%
+  spread(AR.Period, Total.Sales.Revenue)
+for (i in 1:length(d.master)) {names(d.master)[i] <- sub("-", ".",names(d.master)[i] )}
+d.master[is.na(d.master)] <- 0
+d.master <- d.master %>% rowwise %>% mutate( Total2016 = 
+            sum(jan.16, fev.16, mar.16, abr.16, mai.16, jun.16, 
+                jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
+            arrange(desc(Total2016))
+d.master <- d.master %>% rowwise %>% mutate( Total2017 = 
+            sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+
+## Check unicity of Liked Account Id, look for >1
+summary(d.master$Linked.Account.Id)
+
+d.master <- append.slope.relgrowth.generic(d.master, length(d.master)-13, length(d.master)-2)
+
+write.csv(d.master, "ago 2017 d master.csv")
+
+##
+##
+##
+##
+## *_*_*_*_*_*_*_*_*_*_*
+## IV. d.master.sfid <- BUILD SFID ACCOUNT TABLE: information about SFID accounts
+## 1 parte  
+d.master.sfid <- d %>%
+  filter(Company.SFDC.Id != "Not Available") %>% filter(Company.SFDC.Id != "Unknown") %>%
+  group_by(Company.SFDC.Id, AR.Period, Sfdc.Account.Name, Territory, Market.Segment, Payer.Email.Domain) %>%
+  summarise(Total.Sales.Revenue = sum(Total.Sales.Revenue)) %>%
+  spread(AR.Period, Total.Sales.Revenue)
+for (i in 1:length(d.master.sfid)) {names(d.master.sfid)[i] <- sub("-", ".",names(d.master.sfid)[i] )}
+d.master.sfid[is.na(d.master.sfid)] <- 0
+d.master.sfid <- d.master.sfid %>% rowwise %>% mutate( Total2016 = 
+                                               sum(jan.16, fev.16, mar.16, abr.16, mai.16, jun.16, 
+                                                   jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
+  arrange(desc(Total2016))
+d.master.sfid <- d.master.sfid %>% rowwise %>% mutate( Total2017 = 
+                                               sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+d.master.sfid <- d.master.sfid %>% separate(Company.SFDC.Id, into = c("Company.SFDC.Id", "Company.SFDC.Id.sfid.ext"), sep = 15,
+                                          remove = TRUE)
+
+## Check unicity of Liked Account Id, look for >1
+summary(d.master.sfid)
+
+## 2a parte
+## Slope last 12M
+d.master.sfid <- append.slope.relgrowth.generic(d.master.sfid, 
+                                                length(d.master.sfid)-13, length(d.master.sfid)-2)
+names(d.master.sfid)[length(d.master.sfid)] <- "rel.growth.last12m"
+names(d.master.sfid)[length(d.master.sfid)-1] <- "Intercept.last12m"
+names(d.master.sfid)[length(d.master.sfid)-2] <- "Slope.last12m"
+
+## Slope last 6M
+d.master.sfid <- append.slope.relgrowth.generic(d.master.sfid, 
+                                                length(d.master.sfid)-10, length(d.master.sfid)-5)
+names(d.master.sfid)[length(d.master.sfid)] <- "rel.growth.last6m"
+names(d.master.sfid)[length(d.master.sfid)-1] <- "Intercept.last6m"
+names(d.master.sfid)[length(d.master.sfid)-2] <- "Slope.last6m"
+
+
+
+## 3a parte
+### CALCULATE ENGAGED
+
+d.master.sfid <- d.master.sfid %>% 
+  mutate(payer.is.reseller = (as.character(Payer.Email.Domain) %in% as.character(resellers.domain))) %>%
+  mutate(has.last.12.months.opp = (Company.SFDC.Id) %in% id.in.sf) %>%
+  mutate(is.engaged = (payer.is.reseller | has.last.12.months.opp))
+
+write.csv(d.master.sfid, "ago 2017 d master sfid.csv")
+
+## 
+##
+##
+##
+##
+##
+##
+## *_*_*_*_*_*_*_*_*_*_*
+## V. d.reseller.sales.br & d.reseller.sales.br.mmt <- Analytics over reseller sales
+## *_*_*_*_*_*_*_*_*_*_*
+#######################################################
+## 4a parte
+## OBS.: d.reseller.sales.br may not include sales revenue from nonexistent SFID accounts
+
+d.reseller.sales.br <- d.master.sfid %>% filter (payer.is.reseller == TRUE) %>%
+  group_by(Payer.Email.Domain ) %>% summarise(
+    jan.16 = sum(jan.16), fev.16 = sum(fev.16), mar.16 = sum(mar.16), abr.16 = sum(abr.16),
+    mai.16 = sum(mai.16), jun.16 = sum(jun.16), jul.16 = sum(jul.16), ago.16 = sum(ago.16),
+    set.16 = sum(set.16), out.16 = sum(out.16), nov.16 = sum(nov.16), dez.16 = sum(dez.16),
+    jan.17 = sum(jan.17), fev.17 = sum(fev.17), mar.17 = sum(mar.17), abr.17 = sum(abr.17),
+    mai.17 = sum(mai.17), jun.17 = sum(jun.17), jul.17 = sum(jul.17), ago.17 = sum(ago.17), Total2016 = sum(Total2016), Total2017 = sum(Total2017)
+  ) %>% arrange(-Total2017)
+names(d.reseller.sales.br)
+
+## Slope last 12M
+d.reseller.sales.br <- append.slope.relgrowth.generic(d.reseller.sales.br, 
+                                                      length(d.reseller.sales.br)-13, length(d.reseller.sales.br)-2)
+names(d.reseller.sales.br)[length(d.reseller.sales.br)] <- "rel.growth.last12m"
+names(d.reseller.sales.br)[length(d.reseller.sales.br)-1] <- "Intercept.last12m"
+names(d.reseller.sales.br)[length(d.reseller.sales.br)-2] <- "Slope.last12m"
+names(d.reseller.sales.br)
+
+
+## Slope last 6M
+d.reseller.sales.br <- append.slope.relgrowth.generic(d.reseller.sales.br, 
+                                                      length(d.reseller.sales.br)-10, length(d.reseller.sales.br)-5)
+names(d.reseller.sales.br)[length(d.reseller.sales.br)] <- "rel.growth.last6m"
+names(d.reseller.sales.br)[length(d.reseller.sales.br)-1] <- "Intercept.last6m"
+names(d.reseller.sales.br)[length(d.reseller.sales.br)-2] <- "Slope.last6m"
+
+print("average mean slope 12M")
+summary(d.reseller.sales.br$Slope.last12m)
+print("average mean rel growth12M")
+summary(d.reseller.sales.br$rel.growth.last12m)
+print("average mean slope 6M")
+summary(d.reseller.sales.br$Slope.last6m)
+print("average mean rel growth6M")
+summary(d.reseller.sales.br$rel.growth.last6m)
+
+write.csv(d.reseller.sales.br, "reseller performance.csv")
+
+## 5a parte
+## - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
+d.reseller.sales.br.mmt <- d.master.sfid %>% filter (payer.is.reseller == TRUE) %>%
+  filter(Market.Segment == "MMT") %>%
+  group_by(Payer.Email.Domain ) %>% summarise(
+    jan.16 = sum(jan.16), fev.16 = sum(fev.16), mar.16 = sum(mar.16), abr.16 = sum(abr.16),
+    mai.16 = sum(mai.16), jun.16 = sum(jun.16), jul.16 = sum(jul.16), ago.16 = sum(ago.16),
+    set.16 = sum(set.16), out.16 = sum(out.16), nov.16 = sum(nov.16), dez.16 = sum(dez.16),
+    jan.17 = sum(jan.17), fev.17 = sum(fev.17), mar.17 = sum(mar.17), abr.17 = sum(abr.17),
+    mai.17 = sum(mai.17), jun.17 = sum(jun.17), jul.17 = sum(jul.17), ago.17 = sum(ago.17), Total2016 = sum(Total2016), Total2017 = sum(Total2017)
+  ) %>% arrange(-Total2017)
+names(d.reseller.sales.br.mmt)
+
+## Slope last 12M
+d.reseller.sales.br.mmt <- append.slope.relgrowth.generic(d.reseller.sales.br.mmt, 
+                                                      length(d.reseller.sales.br.mmt)-13, length(d.reseller.sales.br.mmt)-2)
+names(d.reseller.sales.br.mmt)[length(d.reseller.sales.br.mmt)] <- "rel.growth.last12m"
+names(d.reseller.sales.br.mmt)[length(d.reseller.sales.br.mmt)-1] <- "Intercept.last12m"
+names(d.reseller.sales.br.mmt)[length(d.reseller.sales.br.mmt)-2] <- "Slope.last12m"
+names(d.reseller.sales.br.mmt)
+
+
+## Slope last 6M
+d.reseller.sales.br.mmt <- append.slope.relgrowth.generic(d.reseller.sales.br.mmt, 
+                                                      length(d.reseller.sales.br.mmt)-10, length(d.reseller.sales.br.mmt)-5)
+names(d.reseller.sales.br.mmt)[length(d.reseller.sales.br.mmt)] <- "rel.growth.last6m"
+names(d.reseller.sales.br.mmt)[length(d.reseller.sales.br.mmt)-1] <- "Intercept.last6m"
+names(d.reseller.sales.br.mmt)[length(d.reseller.sales.br.mmt)-2] <- "Slope.last6m"
+
+
+print("MMT partner average mean slope 12M")
+summary(d.reseller.sales.br.mmt$Slope.last12m)
+print("MMT partner average mean rel growth12M")
+summary(d.reseller.sales.br.mmt$rel.growth.last12m)
+print("MMT partner average mean slope 6M")
+summary(d.reseller.sales.br.mmt$Slope.last6m)
+print("MMT partner average mean rel growth6M")
+summary(d.reseller.sales.br.mmt$rel.growth.last6m)
+
+
+write.csv(d.reseller.sales.br.mmt, "reseller performance in MMT.csv")
+
+
+
+
+##
+##
+##
+##
+##
+##
+## *_*_*_*_*_*_*_*_*_*_*
+## VI. d.terr <- BUILD TERRITORY ACCOUNT TABLE: revenue information about Terrtories
+## *_*_*_*_*_*_*_*_*_*_*
+
+d.terr <- d %>%
+  group_by(Territory, Market.Segment, AR.Period) %>%
+  summarise(total.monthly.sales = sum(Total.Sales.Revenue)) %>%
+  spread(AR.Period, total.monthly.sales)
+for (i in 1:length(d.terr)) {names(d.terr)[i] <- sub("-", ".",names(d.terr)[i] )}
+d.terr[is.na(d.terr)] <- 0
+
+#include EST MONTH columns; there are only two at this poit, Territory and Market Segment
+columns.add.d.terr <- (24 - dim(d.terr)[2]) + 2 
+columns.start.d.terr <- dim(d.terr)[2]
+
+for (i in (columns.start.d.terr+1):(columns.start.d.terr+columns.add.d.terr)) {
+  d.terr[, dates3[12-(columns.start.d.terr+columns.add.d.terr-i)]] <- 0
+}
+
+d.terr <- d.terr %>% mutate( Total2016 = 
+           sum(jan.16, fev.16, mar.16, abr.16, mai.16, jun.16, 
+               jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
+  arrange(desc(Total2016))
+d.terr <- d.terr %>% mutate( Total.ytd.2017 = 
+            sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+
+## Check unicity of Territory, look for >1
+summary(d.terr)
+
+## Slope last 12M
+d.terr <- append.slope.relgrowth.generic(d.terr, 
+            (columns.start.d.terr-11), columns.start.d.terr)
+names(d.terr)[31] <- "rel.growth.last12m"
+names(d.terr)[30] <- "Intercept.last12m"
+names(d.terr)[29] <- "Slope.last12m"
+
+## Slope last 6M
+d.terr <- append.slope.relgrowth.generic(d.terr, 
+          (columns.start.d.terr-5), columns.start.d.terr)
+names(d.terr)[34] <- "rel.growth.last6m"
+names(d.terr)[33] <- "Intercept.last6m"
+names(d.terr)[32] <- "Slope.last6m"
+
+## Attach quota
+d.terr <- left_join(d.terr, quota.2017, by = "Territory")
+d.terr$Territory <- factor(d.terr$Territory)
+d.terr[is.na(d.terr)] <-0
+
+## extrapolation of revenues for the year
+nrows <- dim(d.terr)[1]
+
+
+for (i in 1:nrows) {
+  d.terr[i, (columns.start.d.terr+1):(columns.start.d.terr+columns.add.d.terr)] <- as.vector(
+    calc.inter.vector(d.terr[i, (columns.start.d.terr-11):(columns.start.d.terr)], 
+                      columns.add.d.terr)[(13):(12+columns.add.d.terr)])
+}
+
+d.terr$est.total.2017 <- rowSums(d.terr[,15:26])
+
+d.terr <- d.terr %>% mutate (new.new = Quota - est.total.2017)
+d.terr <- d.terr %>% mutate (new.new.percent = new.new/Quota)
+## NEW.NEW.PER.MONTH amounts to an estimate of how much revenue will be needed for each month until the 
+## end of the year. Month December is not calculated, because any closed business wont see revenue
+## this year.
+d.terr <- d.terr %>% mutate (NEW.NEW.PER.MONTH = new.new/sum(1:(columns.add.d.terr-1)))
+
+##
+##
+##
+##
+## calculate SF forecast by month & Total opportunity
+## in order to match new new
+
+month.forecast <- sf.close %>% filter (Opportunity.Record.Type == "Utility" | 
+                                         Opportunity.Record.Type == "Professional Services") %>%
+  filter(Stage != "Closed.Lost") %>%
+  group_by(Close.Month, Territory) %>% summarise(total.opportunity = sum(Total.Opportunity)) %>%
+  spread(Close.Month, total.opportunity)
+forecast.columns <- length(month.forecast) -1
+for (i in 2:length(month.forecast)) {names(month.forecast)[i] <- paste("SF", sep = ".", names(month.forecast)[i])}
+for (i in 1:length(month.forecast)) {names(month.forecast)[i] <- gsub("-", ".",names(month.forecast)[i] )}
+
+
+## correct with new month
+month.forecast$total.forecast <- 0
+month.forecast[is.na(month.forecast)] <- 0
+
+
+for (i in 1:(forecast.columns)) {
+  month.forecast$total.forecast <- month.forecast$total.forecast + unlist(((i-1) * month.forecast[, (forecast.columns+2-i)]))
+}
+                      
+## join to d.terr
+d.terr <- left_join(d.terr, month.forecast, by = "Territory")
+d.terr$Territory <- factor(d.terr$Territory)
+d.terr[is.na(d.terr)] <- 0
+
+d.terr$gap <- d.terr$total.forecast - d.terr$new.new
+
+##
+##
+##
+## only business validation up
+
+month.forecast.bv <- sf.close %>% filter (Opportunity.Record.Type == "Utility" |
+                                            Opportunity.Record.Type == "Professional Services") %>%
+  filter(Stage == "Committed" | Stage == "Business Validation" | Stage == "Launched") %>%
+  group_by(Close.Month, Territory) %>% summarise(total.opportunity = sum(Total.Opportunity)) %>%
+  spread(Close.Month, total.opportunity)
+forecast.columns.bv <- length(month.forecast.bv) -1
+for (i in 2:length(month.forecast.bv)) {names(month.forecast.bv)[i] <- paste("SF.bv", sep = ".", names(month.forecast.bv)[i])}
+for (i in 1:length(month.forecast.bv)) {names(month.forecast.bv)[i] <- gsub("-", ".",names(month.forecast.bv)[i] )}
+
+month.forecast.bv[is.na(month.forecast.bv)] <- 0
+
+## correct with new month
+month.forecast.bv$total.forecast.bv <- 0
+
+
+for (i in 1:(forecast.columns.bv)) {
+  month.forecast.bv$total.forecast.bv <- month.forecast.bv$total.forecast.bv + unlist(((i-1) * month.forecast.bv[, (forecast.columns.bv+2-i)]))
+}
+
+d.terr <- left_join(d.terr, month.forecast.bv, by = "Territory")
+d.terr$Territory <- factor(d.terr$Territory)
+d.terr[is.na(d.terr)] <- 0
+
+d.terr$gap.bv <- d.terr$total.forecast.bv - d.terr$new.new
+
+
+
+
+
+
+
+
+
+##
+##
+##
+##
+##
+## *_*_*_*_*_*_*_*_*_*_*
+## VII. d.seg <- BUILD SEGMENT REVENUE TABLE: revenue information about Segment
+
+d.seg <- d %>%
+  group_by(Market.Segment, AR.Period) %>%
+  summarise(total.monthly.sales = sum(Total.Sales.Revenue)) %>%
+  spread(AR.Period, total.monthly.sales)
+for (i in 1:length(d.seg)) {names(d.seg)[i] <- sub("-", ".",names(d.seg)[i] )}
+d.seg[is.na(d.seg)] <- 0
+d.seg <- d.seg %>% rowwise %>% mutate( Total2016 = 
+                                           sum(jan.16, fev.16, mar.16, abr.16, mai.16, jun.16, 
+                                               jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
+  arrange(desc(Total2016))
+d.seg <- d.seg %>% rowwise %>% mutate( Total2017 = 
+                                           sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+
+## Check unicity of Liked Account Id, look for >1
+summary(d.seg)
+
+## Slope last 12M
+d.seg <- append.slope.relgrowth.generic(d.seg, 
+                                         length(d.seg)-13, length(d.seg)-2)
+names(d.seg)[length(d.seg)] <- "rel.growth.last12m"
+names(d.seg)[length(d.seg)-1] <- "Intercept.last12m"
+names(d.seg)[length(d.seg)-2] <- "Slope.last12m"
+
+## Slope last 6M
+d.seg <- append.slope.relgrowth.generic(d.seg, 
+                                         length(d.seg)-10, length(d.seg)-5)
+names(d.seg)[length(d.seg)] <- "rel.growth.last6m"
+names(d.seg)[length(d.seg)-1] <- "Intercept.last6m"
+names(d.seg)[length(d.seg)-2] <- "Slope.last6m"
+
+
+##
+##
+##
+##
+## *_*_*_*_*_*_*_*_*_*_*
+## VIII. d.brz <- BUILD Brazil REVENUE TABLE: revenue information about Brazil
+
+d.brz <- d %>%
+  group_by(AR.Period) %>%
+  summarise(total.monthly.sales = sum(Total.Sales.Revenue)) %>%
+  spread(AR.Period, total.monthly.sales)
+for (i in 1:length(d.brz)) {names(d.brz)[i] <- sub("-", ".",names(d.brz)[i] )}
+d.brz[is.na(d.brz)] <- 0
+
+#include EST MONTH columns; there are only two at this poit, Territory and Market Segment
+columns.add.d.brz <- (24 - dim(d.brz)[2])
+columns.start.d.brz <- dim(d.brz)[2]
+
+for (i in (columns.start.d.brz+1):(columns.start.d.brz+columns.add.d.brz)) {
+  d.brz[, dates3[12-(columns.start.d.brz+columns.add.d.brz-i)]] <- 0
+}
+
+d.brz <- d.brz %>% mutate( Total2016 = 
+                               sum(jan.16, fev.16, mar.16, abr.16, mai.16, jun.16, 
+                                   jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
+  arrange(desc(Total2016))
+d.brz <- d.brz %>% mutate( Total.ytd.2017 = 
+                               sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17,na.rm = TRUE)) 
+
+## Check unicity of Liked Account Id, look for >1
+summary(d.brz)
+
+## Slope last 12M
+d.brz <- append.slope.relgrowth.generic(d.brz, 
+                                         columns.start.d.brz-11, columns.start.d.brz)
+names(d.brz)[29] <- "rel.growth.last12m"
+names(d.brz)[28] <- "Intercept.last12m"
+names(d.brz)[27] <- "Slope.last12m"
+
+## Slope last 6M
+d.brz <- append.slope.relgrowth.generic(d.brz, 
+                                         columns.start.d.brz-5, columns.start.d.brz)
+names(d.brz)[32] <- "rel.growth.last6m"
+names(d.brz)[31] <- "Intercept.last6m"
+names(d.brz)[30] <- "Slope.last6m"
+
+## Attach quota
+d.brz$quota.2017 <- 187579273
+
+## extrapolation of revenues for the year
+
+  d.brz[1, (columns.start.d.brz+1):(columns.start.d.brz+columns.add.d.brz)] <- as.vector(
+    calc.inter.vector(d.brz[1, (columns.start.d.brz-11):(columns.start.d.brz)], 
+                      columns.add.d.brz)[(13):(12+columns.add.d.brz)])
+
+
+d.brz$est.total.2017 <- rowSums(d.brz[,13:24])
+
+d.brz <- d.brz %>% mutate (new.new = quota.2017 - est.total.2017)
+d.brz <- d.brz %>% mutate (new.new.per = new.new/quota.2017)
+
+###########################
+###########################
+###########################
+###########################
+###########################
+###########################
+## QUESTIONS WE WANT TO ASK
+###########################
+###########################
+###########################
+
+
+###########################
+## 1) How much each territory needs to sell to close objectives ? Is this covered by Salesforce ?
+##
+
+
+d.terr
+
+###########################
+## 2) What is the graph o Brazil´s revenues ?
+##
+
+###########################
+## 3) How much revenue resellers are bringing across Brazil and Territory ?
+##
+
+## Brazil
+index <- (d$AR.Year == 2017)
+revenue.ytd.brasil <- sum(d$Total.Sales.Revenue[index])
+revenue.ytd.resellers <- sum(d.reseller.sales.br$Total2017)
+print("Brazil:")
+print(revenue.ytd.resellers/revenue.ytd.brasil)
+
+
+
+## MMT Territory
+index <- (d$AR.Year == 2017 & d$Market.Segment == "MMT")
+revenue.ytd.brasil.mmt <- sum(d$Total.Sales.Revenue[index])
+revenue.ytd.resellers.mmt <- sum(d.reseller.sales.br.mmt$Total2017)
+print("MMT:")
+print(revenue.ytd.resellers.mmt/revenue.ytd.brasil.mmt)
+
+
+
+
+
+###########################
+## 4) How is resellers growth in Brazil and MMT Territory ?
+## 
+
+d1 <- d.brz[1,1:(24-columns.add.d.terr)]
+d2 <- d1
+for (i in (1:length(d2))) {d2[1,i] <- sum(d.reseller.sales.br[,i+1])}
+d3 <- rbind(d1,d2)
+d3 <- cbind(d3, c("BRA", "BRA RESELLERS"))
+names(d3)[length(d3)] <- "Label"
+
+## keep d3
+d.brz.rslrs.rv <- d3
+d4 <- gather(d3, "Month", "Total", 1:(length(d3)-1))
+d4$Month <- ordered(d4$Month, levels = dates2)
+
+ggplot(data=d4, aes(x=Month, y=Total, group=Label, color = Label)) +
+  geom_line() +
+  geom_point() +
+  ggtitle("Comparação de receitas entre Brazil (total) e resellers.")
+
+d5 <- d3[1,1]
+d6 <- d3[2,1]
+d3[1,1:(length(d3)-1)] <- d3[1,1:(length(d3)-1)]/d5
+d3[2,1:(length(d3)-1)] <- d3[2,1:(length(d3)-1)]/d6
+d4 <- gather(d3, "Month", "Total", 1:(length(d3)-1))
+d4$Month <- ordered(d4$Month, levels = dates2)
+
+ggplot(data=d4, aes(x=Month, y=Total, group=Label, color = Label)) +
+  geom_line() +
+  geom_point() +
+  ggtitle("Comparação relativa do crescimento de receitas entre Brazil (total) e resellers.")
+
+rm(d1,d2,d3,d4,d5)
+
+##
+##
+##
+## Em territorio
+
+d1 <- d.seg[(d.seg$Market.Segment == "MMT"),2:(25-columns.add.d.terr)]
+d2 <- d1
+for (i in (1:length(d2))) {d2[1,i] <- sum(d.reseller.sales.br.mmt[,i+1])}
+d3 <- rbind(d1,d2)
+d3 <- cbind(d3, c("BRA MMT", "BRA RESELLERS in MMT"))
+names(d3)[length(d3)] <- "Label"
+
+## keep d3
+d.brz.rslrs.rv.mmt <- d3
+d4 <- gather(d3, "Month", "Total", 1:(length(d3)-1))
+d4$Month <- ordered(d4$Month, levels = dates2)
+
+ggplot(data=d4, aes(x=Month, y=Total, group=Label, color = Label)) +
+  geom_line() +
+  geom_point() +
+  ggtitle("Comparação de receitas entre MMT Brazil (total) e resellers em MMT.")
+
+d5 <- d3[1,1]
+d6 <- d3[2,1]
+d3[1,1:(length(d3)-1)] <- d3[1,1:(length(d3)-1)]/d5
+d3[2,1:(length(d3)-1)] <- d3[2,1:(length(d3)-1)]/d6
+d4 <- gather(d3, "Month", "Total", 1:(length(d3)-1))
+d4$Month <- ordered(d4$Month, levels = dates2)
+
+ggplot(data=d4, aes(x=Month, y=Total, group=Label, color = Label)) +
+  geom_line() +
+  geom_point() +
+  ggtitle("Comparação relativa do crescimento de receitas entre MMT Brazil (total) e resellers em MMT.")
+
+rm(d1,d2,d3,d4,d5)
+
+
+
+
+
+###########################
+## 5) what are the differences between 2 points in time in Salesforce ?
+## 
+
+## No levels below
+
+sf.bfr <- sf170810_close
+sf.aftr <- sf170818_close
+glimpse(sf.bfr)
+glimpse(sf.aftr)
+
+##1) remove age
+sf.bfr$Age <- NULL
+sf.aftr$Age <- NULL
+
+d1 <- intersect(sf.bfr, sf.aftr)
+d2 <- union(sf.bfr, sf.aftr)
+sf.dlt <- setdiff(d2, d1)
+names(sf.dlt)[5] <- "Opportunity_Name"
+
+sf.dlt <- sf.dlt %>% arrange(Opportunity_Name)
+
