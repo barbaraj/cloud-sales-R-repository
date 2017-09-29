@@ -107,6 +107,7 @@ append.slope.relgrowth.generic <- function (df, col.start, col.finish) {
   out
 }
 
+
 ## 35 - calculate interpolation cells from a vector of any size
 
 calc.inter.vector <- function(vector, n.cell) {
@@ -501,6 +502,8 @@ d.terr$Territory <- factor(d.terr$Territory)
 d.terr[is.na(d.terr)] <- 0
 
 d.terr$gap.bv <- d.terr$total.forecast.bv - d.terr$new.new
+
+write.csv(d.terr, "D terr ago 17.csv")
 
 
 
