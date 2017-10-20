@@ -22,9 +22,9 @@
 #setwd("~/R/R files/2017/may june")
 
 rm(list = ls(pattern = "^d.")) 
-d <- jan16.ago17
-sf <- sf170921_last12m
-sf.close <- sf170921_close
+d <- jan16.set17
+sf <- sf171016_last12
+sf.close <- sf171016_close
 ## Column names are correct ? If not:
 
 d1 <- c("AR.Year", "AR.Period", "Market.Region", "Market.Segment", "Market.Sub.Region" ,
@@ -75,7 +75,8 @@ resellers.domain <- c("adtsys.com.br", "avanxo.com", "brlink.com.br", "brq.com",
                       "rivendel.com.br", "skyinone.com.br", "softtek.com", "dedalus.com.br", "uol.com.br",
                       "uoldiveo.com", "artsoftsistemas.com.br", "ciandt.com", "m4u.com.br", "seidor.com.br",
                       "uolinc.com", "ipnetsolucoes.com.br", "tivit.com.br", "mandic.com.br", "mandic.net.br",
-                      "level3.com", "br.clara.net", "skyone.solutions")
+                      "level3.com", "br.clara.net", "skyone.solutions", "accenture.com", "dxc.com", "capgemini.com",
+                      "embratel.com.br", "cognizant.com", "br.ibm.com", "infosysconsulting.com")
 
 ## Functions
 ------------
@@ -209,14 +210,14 @@ d.master <- d.master %>% rowwise %>% mutate( Total2016 =
                 jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
             arrange(desc(Total2016))
 d.master <- d.master %>% rowwise %>% mutate( Total2017 = 
-            sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+            sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, set.17, na.rm = TRUE)) 
 
 ## Check unicity of Liked Account Id, look for >1
 summary(d.master$Linked.Account.Id)
 
 d.master <- append.slope.relgrowth.generic(d.master, length(d.master)-13, length(d.master)-2)
 
-write.csv(d.master, "ago 2017 d master.csv")
+write.csv(d.master, "set 2017 d master.csv")
 
 ##
 ##
@@ -237,7 +238,7 @@ d.master.sfid <- d.master.sfid %>% rowwise %>% mutate( Total2016 =
                                                    jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
   arrange(desc(Total2016))
 d.master.sfid <- d.master.sfid %>% rowwise %>% mutate( Total2017 = 
-                                               sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+                                               sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, set.17, na.rm = TRUE)) 
 d.master.sfid <- d.master.sfid %>% separate(Company.SFDC.Id, into = c("Company.SFDC.Id", "Company.SFDC.Id.sfid.ext"), sep = 15,
                                           remove = TRUE)
 
@@ -269,7 +270,7 @@ d.master.sfid <- d.master.sfid %>%
   mutate(has.last.12.months.opp = (Company.SFDC.Id) %in% id.in.sf) %>%
   mutate(is.engaged = (payer.is.reseller | has.last.12.months.opp))
 
-write.csv(d.master.sfid, "ago 2017 d master sfid.csv")
+write.csv(d.master.sfid, "Set 2017 d master sfid.csv")
 
 ## 
 ##
@@ -291,7 +292,8 @@ d.reseller.sales.br <- d.master.sfid %>% filter (payer.is.reseller == TRUE) %>%
     mai.16 = sum(mai.16), jun.16 = sum(jun.16), jul.16 = sum(jul.16), ago.16 = sum(ago.16),
     set.16 = sum(set.16), out.16 = sum(out.16), nov.16 = sum(nov.16), dez.16 = sum(dez.16),
     jan.17 = sum(jan.17), fev.17 = sum(fev.17), mar.17 = sum(mar.17), abr.17 = sum(abr.17),
-    mai.17 = sum(mai.17), jun.17 = sum(jun.17), jul.17 = sum(jul.17), ago.17 = sum(ago.17), Total2016 = sum(Total2016), Total2017 = sum(Total2017)
+    mai.17 = sum(mai.17), jun.17 = sum(jun.17), jul.17 = sum(jul.17), ago.17 = sum(ago.17), 
+    set.17 = sum(set.17), Total2016 = sum(Total2016), Total2017 = sum(Total2017)
   ) %>% arrange(-Total2017)
 names(d.reseller.sales.br)
 
@@ -331,7 +333,8 @@ d.reseller.sales.br.mmt <- d.master.sfid %>% filter (payer.is.reseller == TRUE) 
     mai.16 = sum(mai.16), jun.16 = sum(jun.16), jul.16 = sum(jul.16), ago.16 = sum(ago.16),
     set.16 = sum(set.16), out.16 = sum(out.16), nov.16 = sum(nov.16), dez.16 = sum(dez.16),
     jan.17 = sum(jan.17), fev.17 = sum(fev.17), mar.17 = sum(mar.17), abr.17 = sum(abr.17),
-    mai.17 = sum(mai.17), jun.17 = sum(jun.17), jul.17 = sum(jul.17), ago.17 = sum(ago.17), Total2016 = sum(Total2016), Total2017 = sum(Total2017)
+    mai.17 = sum(mai.17), jun.17 = sum(jun.17), jul.17 = sum(jul.17), ago.17 = sum(ago.17), 
+    set.17 = sum(set.17), Total2016 = sum(Total2016), Total2017 = sum(Total2017)
   ) %>% arrange(-Total2017)
 names(d.reseller.sales.br.mmt)
 
@@ -397,10 +400,11 @@ d.terr <- d.terr %>% mutate( Total2016 =
                jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
   arrange(desc(Total2016))
 d.terr <- d.terr %>% mutate( Total.ytd.2017 = 
-            sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+            sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, set.17, na.rm = TRUE)) 
 
 ## Check unicity of Territory, look for >1
 summary(d.terr)
+names(d.terr)
 
 ## Slope last 12M
 d.terr <- append.slope.relgrowth.generic(d.terr, 
@@ -427,9 +431,16 @@ nrows <- dim(d.terr)[1]
 
 for (i in 1:nrows) {
   d.terr[i, (columns.start.d.terr+1):(columns.start.d.terr+columns.add.d.terr)] <- as.vector(
-    calc.inter.vector(d.terr[i, (columns.start.d.terr-11):(columns.start.d.terr)], 
-                      columns.add.d.terr)[(13):(12+columns.add.d.terr)])
+    calc.inter.vector(d.terr[i, (columns.start.d.terr-5):(columns.start.d.terr)], 
+                      columns.add.d.terr)[(7):(6+columns.add.d.terr)])
 }
+
+## More conservative
+## for (i in 1:nrows) {
+##   d.terr[i, (columns.start.d.terr+1):(columns.start.d.terr+columns.add.d.terr)] <- as.vector(
+##     calc.inter.vector(d.terr[i, (columns.start.d.terr-11):(columns.start.d.terr)], 
+##                       columns.add.d.terr)[(11):(12+columns.add.d.terr)])
+## }
 
 d.terr$est.total.2017 <- rowSums(d.terr[,15:26])
 
@@ -438,7 +449,7 @@ d.terr <- d.terr %>% mutate (new.new.percent = new.new/Quota)
 ## NEW.NEW.PER.MONTH amounts to an estimate of how much revenue will be needed for each month until the 
 ## end of the year. Month December is not calculated, because any closed business wont see revenue
 ## this year.
-d.terr <- d.terr %>% mutate (NEW.NEW.PER.MONTH = new.new/sum(1:(columns.add.d.terr-1)))
+d.terr <- d.terr %>% mutate (NEW.NEW.PER.MONTH = new.new/sum(1:(columns.add.d.terr)))
 
 ##
 ##
@@ -447,43 +458,68 @@ d.terr <- d.terr %>% mutate (NEW.NEW.PER.MONTH = new.new/sum(1:(columns.add.d.te
 ## calculate SF forecast by month & Total opportunity
 ## in order to match new new
 
-month.forecast <- sf.close %>% filter (Opportunity.Record.Type == "Utility" | 
-                                         Opportunity.Record.Type == "Professional Services") %>%
+month.forecast <- sf.close %>% filter (Opportunity.Record.Type == "Utility") %>%
   filter(Stage != "Closed.Lost") %>%
   group_by(Close.Month, Territory) %>% summarise(total.opportunity = sum(Total.Opportunity)) %>%
   spread(Close.Month, total.opportunity)
-forecast.columns <- length(month.forecast) -1
+forecast.columns <- length(month.forecast)
 for (i in 2:length(month.forecast)) {names(month.forecast)[i] <- paste("SF", sep = ".", names(month.forecast)[i])}
 for (i in 1:length(month.forecast)) {names(month.forecast)[i] <- gsub("-", ".",names(month.forecast)[i] )}
-
-
-## correct with new month
+## create total column and Total opp sum
 month.forecast$total.forecast <- 0
 month.forecast[is.na(month.forecast)] <- 0
-
-
 for (i in 1:(forecast.columns)) {
   month.forecast$total.forecast <- month.forecast$total.forecast + unlist(((i-1) * month.forecast[, (forecast.columns+2-i)]))
 }
+
+
+### Include RI's
+
+month.forecast.RI <- sf.close %>% clc.brzl.key() %>%
+  filter(Stage != "Closed.Lost") %>%
+  group_by(Close.Month, Territory) %>% summarise(total.opportunity = sum(Total.Opportunity)) %>%
+  spread(Close.Month, total.opportunity)
+forecast.columns <- length(month.forecast.RI)
+for (i in 2:length(month.forecast.RI)) {names(month.forecast.RI)[i] <- paste("RI", sep = ".", names(month.forecast.RI)[i])}
+for (i in 1:length(month.forecast.RI)) {names(month.forecast.RI)[i] <- gsub("-", ".",names(month.forecast.RI)[i] )}
+## correct with new month
+month.forecast.RI$total.forecast.RI <- 0
+month.forecast.RI[is.na(month.forecast.RI)] <- 0
+month.forecast.RI$total.forecast.RI <- rowSums(month.forecast.RI[2:(1+forecast.columns)])
+
+
+
+
+
+
+
                       
 ## join to d.terr
-d.terr <- left_join(d.terr, month.forecast, by = "Territory")
+d.terr <- left_join(d.terr, month.forecast,  by = "Territory")
+d.terr <- left_join(d.terr, month.forecast.RI, by = "Territory")
 d.terr$Territory <- factor(d.terr$Territory)
 d.terr[is.na(d.terr)] <- 0
 
-d.terr$gap <- d.terr$total.forecast - d.terr$new.new
+
+
+#### new gap calculus
+d.terr$gap <- d.terr$new.new - (d.terr$total.forecast + d.terr$total.forecast.RI)
+
+
+
+
+
 
 ##
 ##
 ##
 ## only business validation up
 
-month.forecast.bv <- sf.close %>% filter (Opportunity.Record.Type == "Utility" |
-                                            Opportunity.Record.Type == "Professional Services") %>%
+month.forecast.bv <- sf.close %>% filter (Opportunity.Record.Type == "Utility") %>%
   filter(Stage == "Committed" | Stage == "Business Validation" | Stage == "Launched") %>%
   group_by(Close.Month, Territory) %>% summarise(total.opportunity = sum(Total.Opportunity)) %>%
   spread(Close.Month, total.opportunity)
-forecast.columns.bv <- length(month.forecast.bv) -1
+forecast.columns.bv <- length(month.forecast.bv)
 for (i in 2:length(month.forecast.bv)) {names(month.forecast.bv)[i] <- paste("SF.bv", sep = ".", names(month.forecast.bv)[i])}
 for (i in 1:length(month.forecast.bv)) {names(month.forecast.bv)[i] <- gsub("-", ".",names(month.forecast.bv)[i] )}
 
@@ -497,13 +533,32 @@ for (i in 1:(forecast.columns.bv)) {
   month.forecast.bv$total.forecast.bv <- month.forecast.bv$total.forecast.bv + unlist(((i-1) * month.forecast.bv[, (forecast.columns.bv+2-i)]))
 }
 
+### Include RI's BV up
+
+month.forecast.RI.bv <- sf.close %>% clc.brzl.key() %>% 
+  filter(Stage == "Committed" | Stage == "Business Validation" | Stage == "Launched") %>%
+  group_by(Close.Month, Territory) %>% summarise(total.opportunity = sum(Total.Opportunity)) %>%
+  spread(Close.Month, total.opportunity)
+forecast.columns <- length(month.forecast.RI.bv)
+for (i in 2:length(month.forecast.RI.bv)) {names(month.forecast.RI.bv)[i] <- paste("RI.BV", sep = ".", names(month.forecast.RI.bv)[i])}
+for (i in 1:length(month.forecast.RI.bv)) {names(month.forecast.RI.bv)[i] <- gsub("-", ".",names(month.forecast.RI.bv)[i] )}
+## correct with new month
+month.forecast.RI.bv$total.forecast.RI.bv <- 0
+month.forecast.RI.bv[is.na(month.forecast.RI.bv)] <- 0
+month.forecast.RI.bv$total.forecast.RI.bv <- rowSums(month.forecast.RI.bv[2:(1+forecast.columns)])
+
+
+
+
+## Totals
 d.terr <- left_join(d.terr, month.forecast.bv, by = "Territory")
+d.terr <- left_join(d.terr, month.forecast.RI.bv, by = "Territory")
 d.terr$Territory <- factor(d.terr$Territory)
 d.terr[is.na(d.terr)] <- 0
 
-d.terr$gap.bv <- d.terr$total.forecast.bv - d.terr$new.new
+d.terr$gap.bv <- d.terr$new.new - (d.terr$total.forecast.bv + d.terr$total.forecast.RI.bv)
 
-write.csv(d.terr, "D terr ago 17.csv")
+write.csv(d.terr, "D terr set 17.csv")
 
 
 
@@ -532,7 +587,7 @@ d.seg <- d.seg %>% rowwise %>% mutate( Total2016 =
                                                jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
   arrange(desc(Total2016))
 d.seg <- d.seg %>% rowwise %>% mutate( Total2017 = 
-                                           sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, na.rm = TRUE)) 
+                                           sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, set.17, na.rm = TRUE)) 
 
 ## Check unicity of Liked Account Id, look for >1
 summary(d.seg)
@@ -579,7 +634,7 @@ d.brz <- d.brz %>% mutate( Total2016 =
                                    jul.16, ago.16, set.16, out.16, nov.16, dez.16, na.rm = TRUE)) %>%
   arrange(desc(Total2016))
 d.brz <- d.brz %>% mutate( Total.ytd.2017 = 
-                               sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17,na.rm = TRUE)) 
+                               sum( jan.17, fev.17, mar.17, abr.17, mai.17, jun.17, jul.17, ago.17, set.17,na.rm = TRUE)) 
 
 ## Check unicity of Liked Account Id, look for >1
 summary(d.brz)
@@ -602,16 +657,32 @@ names(d.brz)[30] <- "Slope.last6m"
 d.brz$quota.2017 <- 187579273
 
 ## extrapolation of revenues for the year
-
+## Conservative 12 m
+##  d.brz[1, (columns.start.d.brz+1):(columns.start.d.brz+columns.add.d.brz)] <- as.vector(
+##    calc.inter.vector(d.brz[1, (columns.start.d.brz-11):(columns.start.d.brz)], 
+##                      columns.add.d.brz)[(13):(12+columns.add.d.brz)])
+  
+## aggressive 6m 
   d.brz[1, (columns.start.d.brz+1):(columns.start.d.brz+columns.add.d.brz)] <- as.vector(
-    calc.inter.vector(d.brz[1, (columns.start.d.brz-11):(columns.start.d.brz)], 
-                      columns.add.d.brz)[(13):(12+columns.add.d.brz)])
+    calc.inter.vector(d.brz[1, (columns.start.d.brz-5):(columns.start.d.brz)], 
+                      columns.add.d.brz)[(7):(6+columns.add.d.brz)])
 
 
 d.brz$est.total.2017 <- rowSums(d.brz[,13:24])
 
 d.brz <- d.brz %>% mutate (new.new = quota.2017 - est.total.2017)
 d.brz <- d.brz %>% mutate (new.new.per = new.new/quota.2017)
+
+## add other forecast info
+
+d.brz$total.forecast <- sum(d.terr$total.forecast) + sum(d.terr$total.forecast.RI)
+d.brz$total.forecast.bv <- sum(d.terr$total.forecast.bv) + sum(d.terr$total.forecast.RI.bv)
+
+
+## include quota & labels
+d.brz[2,13:24] <- quota.bra.2017
+d.brz$Label <- c("Brazil", "Quota.Brazil")
+d.brz[is.na(d.brz)] <- 0
 
 ###########################
 ###########################
